@@ -1,0 +1,26 @@
+{
+  "name": "ft2",
+  "types": [
+    {
+      "attribute": "id",
+      "type": "Long",
+      "primaryKey": true
+    },
+    {
+      "attribute": "geom",
+      "type": "Point"
+    },
+    {
+      "attribute": "doubleproperty",
+      "type": "Double"
+    },
+    {
+      "attribute": "stringproperty",
+      "type": "String"
+    },
+    {
+      "attribute": "intproperty",
+      "type": "Integer"
+    }
+  ]
+}
