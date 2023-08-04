@@ -17,10 +17,11 @@ import org.locationtech.jts.geom.GeometryFactory;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
 import org.opengis.feature.type.AttributeDescriptor;
-import org.opengis.filter.Filter;
 import org.opengis.filter.FilterFactory2;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -33,7 +34,7 @@ import static org.geotools.jdbc.immudb.ImmuDBDataStoreFactory.PORT;
 import static org.geotools.jdbc.immudb.ImmuDBDataStoreFactory.STATE_HOLDER_PATH;
 import static org.geotools.jdbc.immudb.ImmuDBDataStoreFactory.USER;
 
-public class ImmuDBTest {
+public class ImmuDBIT {
 
 
     ImmuDBDataStore immuDBDataStore;
@@ -41,18 +42,21 @@ public class ImmuDBTest {
     FilterFactory2 FF = CommonFactoryFinder.getFilterFactory2();
 
     @Before
-    public void setUPDataStore() throws IOException, SQLException, InterruptedException {
+    public void setUPDataStore() throws IOException, URISyntaxException {
+        String schemaPath=getClass().getResource("ft1-schema.json").toExternalForm();
         Map<String,Object> params=new HashMap<>();
         params.put(DATABASE.key,"defaultdb");
         params.put(HOST.key,"127.0.0.1");
         params.put(PORT.key,3322);
         params.put(USER.key,"immudb");
         params.put(PASSWD.key, "immudb");
-        params.put(JSON_SCHEMA.key, getClass().getResource("ft1-schema.json").toExternalForm());
+        params.put(JSON_SCHEMA.key, schemaPath);
         params.put(STATE_HOLDER_PATH.key,"/home/mvolpini/workspace/state");
         params.put(NAMESPACE.key, "gt");
+        GeoJSONToFeatureType geoJSONToFeatureType=new GeoJSONToFeatureType(new URI(schemaPath),"gt");
+        SimpleFeatureType simpleFeatureType=geoJSONToFeatureType.readType();
         immuDBDataStore=new ImmuDBDataStoreFactory().createDataStore(params);
-        SimpleFeatureType simpleFeatureType=immuDBDataStore.getSchema(new NameImpl("gt","ft2"));
+        immuDBDataStore.createSchema(simpleFeatureType);
         SimpleFeatureBuilder builder=new SimpleFeatureBuilder(simpleFeatureType);
         AttributeDescriptor ad=simpleFeatureType.getDescriptor("geom");
         builder.set(ad.getName(),new GeometryFactory().createPoint(new Coordinate(0,0)));
@@ -70,8 +74,7 @@ public class ImmuDBTest {
     @Test
     public void testGetFeatures() throws IOException {
         SimpleFeatureSource contentFeatureSource=immuDBDataStore.getFeatureSource(new NameImpl("gt","ft2"));
-        Filter filter= FF.equals(FF.property("doubleproperty"),FF.literal(0.1));
-        SimpleFeatureCollection sfc=contentFeatureSource.getFeatures(filter);
+        SimpleFeatureCollection sfc=contentFeatureSource.getFeatures();
         SimpleFeatureIterator sfi=sfc.features();
         while(sfi.hasNext()){
             SimpleFeature sf=sfi.next();

@@ -1,16 +1,12 @@
 package org.geotools.jdbc.immudb;
 
-import io.codenotary.immudb4j.ImmuClient;
 import io.codenotary.immudb4j.sql.SQLException;
-import io.codenotary.immudb4j.sql.SQLQueryResult;
 import io.codenotary.immudb4j.sql.SQLValue;
 import org.geotools.data.FeatureReader;
 import org.geotools.data.FilteringFeatureReader;
 import org.geotools.data.MaxFeatureReader;
 import org.geotools.data.Query;
 import org.geotools.data.ReTypeFeatureReader;
-import org.geotools.data.Transaction;
-import org.geotools.data.simple.SimpleFeatureReader;
 import org.geotools.data.simple.SimpleFeatureSource;
 import org.geotools.data.store.ContentEntry;
 import org.geotools.data.store.ContentFeatureSource;
@@ -37,8 +33,6 @@ public class ImmuDBFeatureSource extends ContentFeatureSource {
 
 
     private URI featureTypeUri;
-    private ImmuClient immuClient;
-
     private ImmuDBSessionParams sessionParams;
 
     /**
@@ -52,10 +46,9 @@ public class ImmuDBFeatureSource extends ContentFeatureSource {
      * @param entry
      * @param query
      */
-    public ImmuDBFeatureSource(URI featureTypeUri, ImmuDBSessionParams sessionParams,ImmuClient client, ContentEntry entry, Query query) {
+    public ImmuDBFeatureSource(URI featureTypeUri, ImmuDBSessionParams sessionParams, ContentEntry entry, Query query) {
         super(entry, query);
         this.featureTypeUri=featureTypeUri;
-        this.immuClient= client;
         this.sessionParams=sessionParams;
     }
 
@@ -82,6 +75,8 @@ public class ImmuDBFeatureSource extends ContentFeatureSource {
         Filter postFilter = split[1];
         boolean postFilterRequired = postFilter != null && postFilter != Filter.INCLUDE;
 
+
+        ImmuDBDataStore immuDBDataStore=(ImmuDBDataStore) getDataStore();
         // rebuild a new query with the same params, but just the pre-filter
         Query preQuery = new Query(query);
         preQuery.setFilter(preFilter);
@@ -90,23 +85,18 @@ public class ImmuDBFeatureSource extends ContentFeatureSource {
             preQuery.setStartIndex(0);
             preQuery.setMaxFeatures(Integer.MAX_VALUE);
         }
-
         // Build the feature type returned by this query. Also build an eventual extra feature type
         // containing the attributes we might need in order to evaluate the post filter
         SimpleFeatureType[] types =
                 buildQueryAndReturnFeatureTypes(getSchema(), query.getPropertyNames(), postFilter);
         SimpleFeatureType querySchema = types[0];
         SimpleFeatureType returnedSchema = types[1];
-        ImmuDBFilterToSQL immuDBFilterToSQL=new ImmuDBFilterToSQL(new StringWriter());
+        ImmuDBFilterToSQL immuDBFilterToSQL=((ImmuDBDataStore)getDataStore()).getFilterToSQL(new StringWriter(),getSchema());
+        FeatureReader<SimpleFeatureType, SimpleFeature> reader=null;
         try {
-            String sql = ((ImmuDBDataStore) getDataStore()).selectSQLPS(querySchema, immuDBFilterToSQL, preQuery);
-            SQLValue[] params = new SQLValue[immuDBFilterToSQL.getLiteralValues().size()];
-            List<Object> literals = immuDBFilterToSQL.getLiteralValues();
-            for (int i = 0; i < literals.size(); i++) {
-                params[i] = getSQLValue(literals.get(i));
-            }
-            ((ImmuDBDataStore) getDataStore()).open(getState().getTransaction());
-            FeatureReader<SimpleFeatureType, SimpleFeature> reader=new ImmuDBFeatureReader((ImmuDBDataStore) getDataStore(),getState(),querySchema,new ImmuDBStatement(sql,immuClient,params));
+            String sql = immuDBDataStore.selectSQL(querySchema, immuDBFilterToSQL, preQuery);
+            SQLValue[] params = getParams(immuDBFilterToSQL);
+            reader=new ImmuDBFeatureReader((ImmuDBDataStore) getDataStore(),getState(),querySchema,sql,params);
             // if post filter, wrap it
             if (postFilterRequired) {
                 reader = new FilteringFeatureReader<>(reader, postFilter);
@@ -129,7 +119,8 @@ public class ImmuDBFeatureSource extends ContentFeatureSource {
                 }
             }
             return reader;
-        } catch (SQLException e){
+        } catch (Exception e){
+            if (reader!=null) reader.close();
             throw new IOException(e);
         }
 
@@ -199,7 +190,12 @@ public class ImmuDBFeatureSource extends ContentFeatureSource {
         return new GeoJSONToFeatureType(featureTypeUri,entry.getName().getNamespaceURI()).readType();
     }
 
-    public ImmuClient getImmuClient() {
-        return immuClient;
+    protected SQLValue[] getParams(ImmuDBFilterToSQL toSQL) throws IOException {
+        SQLValue[] params = new SQLValue[toSQL.getLiteralValues().size()];
+        List<Object> literals = toSQL.getLiteralValues();
+        for (int i = 0; i < literals.size(); i++) {
+            params[i] = getSQLValue(literals.get(i));
+        }
+        return params;
     }
 }

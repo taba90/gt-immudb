@@ -39,19 +39,6 @@ public class ImmuDBFilterToSQL extends FilterToSQL {
     protected List<AttributeDescriptor> descriptors = new ArrayList<>();
     boolean prepareEnabled = true;
 
-
-    /**
-     * If true (default) a sql statement with literal placemarks is created, otherwise a normal
-     * statement is created
-     */
-    public boolean isPrepareEnabled() {
-        return prepareEnabled;
-    }
-
-    public void setPrepareEnabled(boolean prepareEnabled) {
-        this.prepareEnabled = prepareEnabled;
-    }
-
     public ImmuDBFilterToSQL(Writer out) {
         super(out);
     }

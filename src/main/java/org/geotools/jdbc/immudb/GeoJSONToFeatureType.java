@@ -78,9 +78,10 @@ public class GeoJSONToFeatureType {
                 pk = node.get(PRIMARY_KEY).asBoolean();
             }
             if (pk.booleanValue()) {
-                userData.put(PK_USER_DATA, attribute);
+                Class<?> clazz=getClassFromBinding(type);
+                userData.put(PK_USER_DATA, new ImmuDBPk(simpleFeatureTypeBuilder.getName(),attribute,clazz));
             }
-            simpleFeatureTypeBuilder.add(attribute, getClassFromBinding(type));
+            if (!pk.booleanValue()) simpleFeatureTypeBuilder.add(attribute, getClassFromBinding(type));
     }
 
     private Class<?> getClassFromBinding(String type){

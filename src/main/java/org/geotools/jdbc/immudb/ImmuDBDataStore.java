@@ -1,21 +1,19 @@
 package org.geotools.jdbc.immudb;
 
+import io.codenotary.immudb4j.FileImmuStateHolder;
 import io.codenotary.immudb4j.ImmuClient;
-import io.codenotary.immudb4j.ImmuState;
 import io.codenotary.immudb4j.ImmuStateHolder;
 import io.codenotary.immudb4j.sql.SQLException;
 import io.codenotary.immudb4j.sql.SQLQueryResult;
+import io.codenotary.immudb4j.sql.SQLValue;
 import org.geotools.data.Query;
 import org.geotools.data.Transaction;
-import org.geotools.data.jdbc.FilterToSQL;
 import org.geotools.data.jdbc.FilterToSQLException;
 import org.geotools.data.store.ContentDataStore;
 import org.geotools.data.store.ContentEntry;
 import org.geotools.data.store.ContentFeatureSource;
 import org.geotools.data.store.ContentState;
 import org.geotools.feature.NameImpl;
-import org.geotools.jdbc.JDBCState;
-import org.geotools.jdbc.NullPrimaryKey;
 import org.geotools.jdbc.PrimaryKey;
 import org.geotools.jdbc.PrimaryKeyColumn;
 import org.geotools.util.Converters;
@@ -32,28 +30,17 @@ import java.io.StringWriter;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URLDecoder;
-import java.sql.Connection;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class ImmuDBDataStore extends ContentDataStore {
-
-    private ImmuClient immuClient;
-
     private ImmuDBSessionParams immuDBSessionParams;
     private URI featureTypeUri;
     private Logger LOGGER = Logging.getLogger(ImmuDBDataStore.class);
     public ImmuDBDataStore(URI featureTypeUri, String ns, String host, Integer port, ImmuDBSessionParams immuDBSessionParams, ImmuStateHolder stateHolder){
-        this.immuClient=ImmuClient.newBuilder()
-                .withServerUrl(host)
-                .withServerPort(port)
-                .withStateHolder(stateHolder)
-                .build();
         this.immuDBSessionParams=immuDBSessionParams;
         setNamespaceURI(ns);
         this.featureTypeUri=featureTypeUri;
@@ -62,7 +49,7 @@ public class ImmuDBDataStore extends ContentDataStore {
     @Override
     protected List<Name> createTypeNames() throws IOException {
         List<Name> names=new ArrayList<>();
-        open(Transaction.AUTO_COMMIT);
+        ImmuClient immuClient=open(Transaction.AUTO_COMMIT);
         try {
             SQLQueryResult queryResult=immuClient.sqlQuery("SELECT name from TABLES()");
             while (queryResult.next()){
@@ -72,42 +59,46 @@ public class ImmuDBDataStore extends ContentDataStore {
         } catch (SQLException e) {
             throw new IOException(e);
         } finally {
-            releaseConnection(Transaction.AUTO_COMMIT);
+            releaseConnection(Transaction.AUTO_COMMIT,immuClient);
         }
         return names;
     }
 
     @Override
     protected ContentFeatureSource createFeatureSource(ContentEntry entry) throws IOException {
-        return new ImmuDBFeatureStore(featureTypeUri,immuDBSessionParams,immuClient,entry,Query.ALL);
+        return new ImmuDBFeatureStore(featureTypeUri,immuDBSessionParams,entry,Query.ALL);
     }
 
-    public void open(Transaction transaction) {
+    public ImmuClient open(Transaction transaction) throws IOException {
+        ImmuClient immuClient=ImmuClient.newBuilder()
+                .withServerUrl(immuDBSessionParams.getHost())
+                .withServerPort(immuDBSessionParams.getPort())
+                .withStateHolder(FileImmuStateHolder.newBuilder().withStatesFolder(immuDBSessionParams.getStateHolder()).build())
+                .build();
         ImmuDBTransactionState state=new ImmuDBTransactionState(immuClient,immuDBSessionParams,transaction);
         if (!transaction.equals(Transaction.AUTO_COMMIT)) transaction.putState(this,state);
+        return immuClient;
     }
 
-    public final void releaseConnection(Transaction transaction) {
+    public final void releaseConnection(Transaction transaction, ImmuClient immuClient) {
         if (transaction == Transaction.AUTO_COMMIT) {
             try {
                 immuClient.commitTransaction();
-            } catch (SQLException e) {
+                immuClient.closeSession();
+                immuClient.shutdown();
+            } catch (InterruptedException e) {
+                LOGGER.log(Level.SEVERE, "Error while disposing the ImmuDB datastore", e);
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+            } catch (Throwable e) {
                 throw new RuntimeException(e);
             }
-            immuClient.closeSession();
         }
     }
 
     @Override
     public void dispose() {
         super.dispose();
-        try {
-            immuClient.shutdown();
-        } catch (InterruptedException e) {
-            LOGGER.log(Level.SEVERE,"Error while disposing the ImmuDB datastore",e);
-            Thread.currentThread().interrupt();
-            throw new RuntimeException(e);
-        }
     }
 
     ImmuDBFilterToSQL filter(
@@ -127,15 +118,18 @@ public class ImmuDBDataStore extends ContentDataStore {
         }
     }
 
-    private FilterToSQL getFilterToSQL(StringWriter writer) {
-        return new ImmuDBFilterToSQL(writer);
+    protected ImmuDBFilterToSQL getFilterToSQL(StringWriter writer, SimpleFeatureType simpleFeatureType) throws IOException {
+        ImmuDBFilterToSQL filterToSQL= new ImmuDBFilterToSQL(writer);
+        PrimaryKey pk=getPrimaryKey(simpleFeatureType);
+        filterToSQL.setPrimaryKey(pk);
+        return filterToSQL;
     }
 
     /** Encodes the sort-by portion of an sql query */
     void sort(SimpleFeatureType featureType, SortBy[] sort, String prefix, StringBuffer sql)
             throws IOException {
         if ((sort != null) && (sort.length > 0)) {
-            String key = getPrimaryKey(featureType);
+            String key = extractPkAttribute(featureType);
             sql.append(" ORDER BY ");
 
             for (SortBy sortBy : sort) {
@@ -166,11 +160,10 @@ public class ImmuDBDataStore extends ContentDataStore {
         // primary key
         String key = null;
         try {
-            key = getPrimaryKey(featureType);
+            key = extractPkAttribute(featureType);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        // we need to add the primary key columns only if they are not already exposed
             sql.append(key);
             sql.append(",");
 
@@ -192,9 +185,9 @@ public class ImmuDBDataStore extends ContentDataStore {
      * @param query the query to be run. The type name and property will be ignored, as they are
      *     supposed to have been already embedded into the provided feature type
      */
-    protected String selectSQLPS(
+    protected String selectSQL(
             SimpleFeatureType featureType, ImmuDBFilterToSQL toSQL, Query query)
-            throws SQLException, IOException {
+            throws IOException {
 
         StringBuffer sql = new StringBuffer();
         sql.append("SELECT ");
@@ -258,11 +251,21 @@ public class ImmuDBDataStore extends ContentDataStore {
      * Returns the primary key object for a particular feature type / table, deriving it from the
      * underlying database metadata.
      */
-    public String getPrimaryKey(SimpleFeatureType featureType) throws IOException {
+    public PrimaryKey getPrimaryKey(SimpleFeatureType featureType) throws IOException {
         return getPrimaryKey(ensureEntry(featureType.getName()));
     }
 
-    protected String getPrimaryKey(ContentEntry entry) throws IOException {
+    public String extractPkAttribute(SimpleFeatureType featureType) throws IOException {
+        PrimaryKey pk=getPrimaryKey(featureType);
+        return pk.getColumns().get(0).getName();
+    }
+
+    public Class<?> extractPkType(SimpleFeatureType featureType) throws IOException {
+        PrimaryKey pk=getPrimaryKey(featureType);
+        return pk.getColumns().get(0).getType();
+    }
+
+    protected PrimaryKey getPrimaryKey(ContentEntry entry) throws IOException {
         ImmuDBState state = (ImmuDBState) entry.getState(Transaction.AUTO_COMMIT);
 
         if (state.getPrimaryKey() == null) {
@@ -270,7 +273,7 @@ public class ImmuDBDataStore extends ContentDataStore {
                 if (state.getPrimaryKey() == null) {
                     // get metadata from database
                     try {
-                        String pk=(String)state.getFeatureType().getUserData().get(GeoJSONToFeatureType.PK_USER_DATA);
+                        PrimaryKey pk=(PrimaryKey)state.getFeatureType().getUserData().get(GeoJSONToFeatureType.PK_USER_DATA);
                         state.setPrimaryKey(pk);
                     } catch (Exception e) {
                         String msg = "Error looking up primary key";
@@ -348,6 +351,40 @@ public class ImmuDBDataStore extends ContentDataStore {
         }
 
         return values;
+    }
+
+    @Override
+    public void createSchema(final SimpleFeatureType featureType) throws IOException {
+        if (entry(featureType.getName()) != null) {
+            String msg = "Schema '" + featureType.getName() + "' already exists";
+            throw new IllegalArgumentException(msg);
+        }
+        ImmuClient immuClient=open(Transaction.AUTO_COMMIT);
+        try {
+            String sql = createTableSQL(featureType);
+            LOGGER.log(Level.FINE, "Create schema: {0}", sql);
+                immuClient.sqlExec(sql,new SQLValue[0]);
+        } catch (Exception e) {
+            String msg = "Error occurred creating table";
+            throw new IOException(msg, e);
+        } finally {
+        releaseConnection(Transaction.AUTO_COMMIT,immuClient);
+    }
+    }
+
+    private String createTableSQL(SimpleFeatureType featureType) throws IOException {
+        String tname=featureType.getTypeName();
+        StringBuilder stmt=new StringBuilder("CREATE TABLE ");
+        PrimaryKey key=(PrimaryKey) featureType.getUserData().get(GeoJSONToFeatureType.PK_USER_DATA);
+        String pk=key.getColumns().get(0).getName();
+        String immuType=Converter.getSQLType(key.getColumns().get(0).getType());
+        stmt.append(tname).append(" (").append(pk)
+                .append(" ").append(immuType).append(" ").append("AUTO_INCREMENT,");
+        for (AttributeDescriptor desc:featureType.getAttributeDescriptors()){
+            stmt.append(desc.getLocalName()).append(" ").append(Converter.getSQLType(desc.getType().getBinding())).append(",");
+        }
+        stmt.append("PRIMARY KEY ").append(pk).append(")");
+        return stmt.toString();
     }
 
     @Override

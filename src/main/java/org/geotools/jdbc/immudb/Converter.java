@@ -2,9 +2,11 @@ package org.geotools.jdbc.immudb;
 
 import io.codenotary.immudb4j.sql.SQLQueryResult;
 import io.codenotary.immudb4j.sql.SQLValue;
+import org.apache.commons.lang3.StringUtils;
 import org.geotools.geometry.jts.WKBReader;
 import org.geotools.geometry.jts.WKTReader2;
 import org.geotools.geometry.jts.WKTWriter2;
+import org.geotools.util.Converters;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKBWriter;
@@ -15,6 +17,7 @@ import org.opengis.feature.type.AttributeDescriptor;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 
@@ -123,15 +126,36 @@ public class Converter {
         return result;
     }
 
+    public static String getSQLType(Class<?> clazz){
+        String result;
+        if (Double.class.isAssignableFrom(clazz)){
+            result="BLOB[8]";
+        } else if (Float.class.isAssignableFrom(clazz)){
+            result="BLOB[4]";
+        } else if (Integer.class.isAssignableFrom(clazz) || Long.class.isAssignableFrom(clazz)){
+            result="INTEGER";
+        } else if (Geometry.class.isAssignableFrom(clazz)){
+            result="BLOB";
+        } else if (String.class.isAssignableFrom(clazz)){
+            result="VARCHAR";
+        } else {
+            throw new UnsupportedOperationException(String.format("Type not supported %s", clazz.getSimpleName()));
+        }
+        return result;
+    }
 
-    public static SQLValue [] toSQLValues(SimpleFeature simpleFeature, String pk, List<AttributeDescriptor> descriptorList) throws IOException {
+
+    public static SQLValue [] toSQLValues(SimpleFeature simpleFeature,Class<?> pkType, List<AttributeDescriptor> descriptorList) throws IOException {
         List<SQLValue> values=new ArrayList<>(descriptorList.size()-1);
+        String fid=simpleFeature.getID();
+        if (StringUtils.isNotBlank(fid) && fid.startsWith(simpleFeature.getType().getTypeName())){
+            fid=fid.split("\\.")[1];
+            values.add(Converter.getSQLValue(Converters.convert(fid,pkType)));
+        }
         for (int i=0; i<descriptorList.size(); i++){
             AttributeDescriptor ad=descriptorList.get(i);
-            if (!ad.getLocalName().equalsIgnoreCase(pk)) {
-                Object value = simpleFeature.getAttribute(ad.getName());
-                values.add(Converter.getSQLValue(value,ad.getType().getBinding()));
-            }
+            Object value = simpleFeature.getAttribute(ad.getName());
+            values.add(Converter.getSQLValue(value,ad.getType().getBinding()));
         }
         return values.toArray(new SQLValue[]{});
     }

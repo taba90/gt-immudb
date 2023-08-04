@@ -26,9 +26,9 @@ public class ImmuDBFeatureReader implements SimpleFeatureReader {
     protected ImmuDBStatement statement;
 
     protected Transaction tx;
-    public ImmuDBFeatureReader(ImmuDBDataStore dataStore, ContentState state, SimpleFeatureType simpleFeatureType, ImmuDBStatement statement){
+    public ImmuDBFeatureReader(ImmuDBDataStore dataStore, ContentState state, SimpleFeatureType simpleFeatureType, String sql,SQLValue[] params) throws IOException {
         this.simpleFeatureType=simpleFeatureType;
-        this.statement=statement;
+        this.statement=new ImmuDBStatement(sql,dataStore.open(Transaction.AUTO_COMMIT),params);
         this.immuDBDataStore=dataStore;
         this.state=state;
     }
@@ -41,12 +41,14 @@ public class ImmuDBFeatureReader implements SimpleFeatureReader {
     public SimpleFeature next() throws IOException, IllegalArgumentException, NoSuchElementException {
         int attributeCount=simpleFeatureType.getAttributeCount();
         SimpleFeatureBuilder builder=new SimpleFeatureBuilder(simpleFeatureType);
+        Object id=Converter.getValue(queryResult,0,immuDBDataStore.extractPkType(simpleFeatureType));
+        String fid=new StringBuilder().append(simpleFeatureType.getTypeName()).append(".").append(id).toString();
         for (int i=0; i<attributeCount; i++){
-            AttributeDescriptor descriptor=simpleFeatureType.getDescriptor(i);
-            Object value=Converter.getValue(queryResult,i,descriptor.getType().getBinding());
+            AttributeDescriptor descriptor = simpleFeatureType.getDescriptor(i);
+            Object value = Converter.getValue(queryResult, i+1, descriptor.getType().getBinding());
             builder.add(value);
         }
-        return builder.buildFeature(null);
+        return builder.buildFeature(fid);
 
     }
 
@@ -64,7 +66,7 @@ public class ImmuDBFeatureReader implements SimpleFeatureReader {
     public void close() throws IOException {
         try {
             if (queryResult!=null) queryResult.close();
-            immuDBDataStore.releaseConnection(state.getTransaction());
+            immuDBDataStore.releaseConnection(state.getTransaction(),statement.getImmuClient());
         } catch (Exception e) {
             throw new IOException(e);
         }

@@ -1,7 +1,5 @@
 package org.geotools.jdbc.immudb;
 
-import io.codenotary.immudb4j.ImmuClient;
-import io.codenotary.immudb4j.sql.SQLQueryResult;
 import io.codenotary.immudb4j.sql.SQLValue;
 import org.geotools.data.FeatureWriter;
 import org.geotools.data.store.ContentEntry;
@@ -15,7 +13,6 @@ import org.opengis.feature.type.AttributeDescriptor;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.List;
 
 public class ImmuDBInsertFeatureWriter extends ImmuDBFeatureReader implements FeatureWriter<SimpleFeatureType, SimpleFeature> {
@@ -26,12 +23,11 @@ public class ImmuDBInsertFeatureWriter extends ImmuDBFeatureReader implements Fe
 
     ContentFeatureSource featureSource;
 
-    public ImmuDBInsertFeatureWriter(ContentFeatureSource featureSource,ImmuDBDataStore dataStore, ContentState state, SimpleFeatureType simpleFeatureType, ImmuDBStatement statement) {
-        super(dataStore,state, simpleFeatureType, statement);
+    public ImmuDBInsertFeatureWriter(ContentFeatureSource featureSource,ImmuDBDataStore dataStore, ContentState state, SimpleFeatureType simpleFeatureType,String sql) throws IOException {
+        super(dataStore,state, simpleFeatureType, sql,null);
         buffer = new SimpleFeature[500];
        this.featureSource=featureSource;
        this.immuDBDataStore=dataStore;
-       immuDBDataStore.open(state.getTransaction());
     }
 
     @Override
@@ -69,12 +65,12 @@ public class ImmuDBInsertFeatureWriter extends ImmuDBFeatureReader implements Fe
             // do the insert
             Collection<SimpleFeature> features =
                     Arrays.asList(Arrays.copyOfRange(buffer, 0, curBufferPos));
-            String pk=immuDBDataStore.getPrimaryKey(simpleFeatureType);
+            Class<?> pkType=immuDBDataStore.extractPkType(simpleFeatureType);
             List<AttributeDescriptor> descriptors=simpleFeatureType.getAttributeDescriptors();
             for (SimpleFeature cur : features) {
                 if (cur!=null) {
                     // the datastore sets as userData, grab it and update the fid
-                    SQLValue[] params = Converter.toSQLValues(cur, pk, descriptors);
+                    SQLValue[] params = Converter.toSQLValues(cur, pkType, descriptors);
                     statement.executeStmt(params);
                     final ContentEntry entry = featureSource.getEntry();
                     final ContentState state = entry.getState(this.tx);

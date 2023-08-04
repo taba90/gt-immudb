@@ -45,6 +45,7 @@ public class ImmuDBStatement {
         }
     }
 
-
-
+    public ImmuClient getImmuClient() {
+        return immuClient;
+    }
 }

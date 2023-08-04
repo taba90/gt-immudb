@@ -6,7 +6,7 @@ import org.geotools.jdbc.PrimaryKey;
 
 public class ImmuDBState extends ContentState {
 
-    private String primaryKey;
+    private PrimaryKey primaryKey;
 
     /** Creates the state from an existing one. */
     public ImmuDBState(ImmuDBState state) {
@@ -22,11 +22,11 @@ public class ImmuDBState extends ContentState {
     }
 
     /** The cached primary key. */
-    public String getPrimaryKey() {
+    public PrimaryKey getPrimaryKey() {
         return primaryKey;
     }
     /** Sets the cached primary key. */
-    public void setPrimaryKey(String primaryKey) {
+    public void setPrimaryKey(PrimaryKey primaryKey) {
         this.primaryKey = primaryKey;
     }
 
