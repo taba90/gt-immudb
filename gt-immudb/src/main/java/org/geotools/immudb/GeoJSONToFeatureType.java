@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.geotools.feature.NameImpl;
 import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
+import org.geotools.referencing.CRS;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.MultiLineString;
@@ -14,6 +15,7 @@ import org.locationtech.jts.geom.MultiPolygon;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
 import org.opengis.feature.simple.SimpleFeatureType;
+import org.opengis.referencing.FactoryException;
 
 import java.io.IOException;
 import java.net.URI;
@@ -50,6 +52,7 @@ public class GeoJSONToFeatureType {
     public SimpleFeatureType readType() throws IOException {
         ObjectMapper objectMapper=new ObjectMapper();
         SimpleFeatureTypeBuilder typeBuilder=new SimpleFeatureTypeBuilder();
+        typeBuilder.setSRS("EPSG:4326");
         JsonNode jn=objectMapper.readTree(featureTypeUri.toURL());
         if (!jn.has(NAME)) throw new RuntimeException("The JSON type must have a name attribute with the feature type name");
         if (!jn.has(TYPES)) throw new RuntimeException("The JSON type doesn't have any types definition");
@@ -64,6 +67,7 @@ public class GeoJSONToFeatureType {
         }
         SimpleFeatureType sft= typeBuilder.buildFeatureType();
         sft.getUserData().putAll(userData);
+
         return sft;
     }
 
@@ -78,7 +82,12 @@ public class GeoJSONToFeatureType {
                 Class<?> clazz=getClassFromBinding(type);
                 userData.put(PK_USER_DATA, new ImmuDBPk(simpleFeatureTypeBuilder.getName(),attribute,clazz));
             }
-            if (!pk.booleanValue()) simpleFeatureTypeBuilder.add(attribute, getClassFromBinding(type));
+            if (!pk.booleanValue()){
+                Class<?> clazz= getClassFromBinding(type);
+                if (Geometry.class.isAssignableFrom(clazz))
+                    simpleFeatureTypeBuilder.setDefaultGeometry(attribute);
+                simpleFeatureTypeBuilder.add(attribute,clazz);
+            }
     }
 
     private Class<?> getClassFromBinding(String type){

@@ -197,4 +197,9 @@ public class ImmuDBFeatureSource extends ContentFeatureSource {
         }
         return params;
     }
+
+    @Override
+    protected boolean canFilter() {
+        return true;
+    }
 }

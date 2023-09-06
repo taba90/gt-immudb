@@ -9,6 +9,7 @@
             <directory>../gt-immudb/target/dependency</directory>
             <outputDirectory></outputDirectory>
             <includes>
+                <include>immudb*</include>
                 <include>gt-immudb*</include>
                 <include>*grpc*1.44.1*</include>
                 <include>*netty*4.1.72*</include>

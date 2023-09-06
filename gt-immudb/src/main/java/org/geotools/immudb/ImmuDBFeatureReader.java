@@ -24,6 +24,7 @@ public class ImmuDBFeatureReader implements SimpleFeatureReader {
 
     protected ImmuDBStatement statement;
 
+    private SimpleFeature next;
     protected Transaction tx;
     public ImmuDBFeatureReader(ImmuDBDataStore dataStore, ContentState state, SimpleFeatureType simpleFeatureType, String sql,SQLValue[] params) throws IOException {
         this.simpleFeatureType=simpleFeatureType;
@@ -38,24 +39,28 @@ public class ImmuDBFeatureReader implements SimpleFeatureReader {
 
     @Override
     public SimpleFeature next() throws IOException, IllegalArgumentException, NoSuchElementException {
-        int attributeCount=simpleFeatureType.getAttributeCount();
-        SimpleFeatureBuilder builder=new SimpleFeatureBuilder(simpleFeatureType);
-        Object id=Converter.getValue(queryResult,0,immuDBDataStore.extractPkType(simpleFeatureType));
-        String fid=new StringBuilder().append(simpleFeatureType.getTypeName()).append(".").append(id).toString();
-        for (int i=0; i<attributeCount; i++){
-            AttributeDescriptor descriptor = simpleFeatureType.getDescriptor(i);
-            Object value = Converter.getValue(queryResult, i+1, descriptor.getType().getBinding());
-            builder.add(value);
-        }
-        return builder.buildFeature(fid);
-
+        SimpleFeature result=next;
+        next=null;
+        return result;
     }
 
     @Override
     public boolean hasNext() throws IOException {
         try {
             if (queryResult==null) queryResult=statement.executeQuery();
-            return queryResult.next();
+            if  (next==null && queryResult.next()){
+                int attributeCount=simpleFeatureType.getAttributeCount();
+                SimpleFeatureBuilder builder=new SimpleFeatureBuilder(simpleFeatureType);
+                Object id=Converter.getValue(queryResult,0,immuDBDataStore.extractPkType(simpleFeatureType));
+                String fid=new StringBuilder().append(simpleFeatureType.getTypeName()).append(".").append(id).toString();
+                for (int i=0; i<attributeCount; i++){
+                    AttributeDescriptor descriptor = simpleFeatureType.getDescriptor(i);
+                    Object value = Converter.getValue(queryResult, i+1, descriptor.getType().getBinding());
+                    builder.add(value);
+                }
+                next= builder.buildFeature(fid);
+            }
+            return next !=null;
         } catch (SQLException e) {
             throw new IOException(e);
         }
