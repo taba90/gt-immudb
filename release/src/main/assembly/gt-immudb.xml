@@ -1,0 +1,28 @@
+<assembly>
+    <id>gt-immudb</id>
+    <formats>
+        <format>zip</format>
+    </formats>
+    <includeBaseDirectory>false</includeBaseDirectory>
+    <fileSets>
+        <fileSet>
+            <directory>../gt-immudb/target/dependency</directory>
+            <outputDirectory></outputDirectory>
+            <includes>
+                <include>gt-immudb*</include>
+                <include>*grpc*1.44.1*</include>
+                <include>*netty*4.1.72*</include>
+                <include>protobuf*</include>
+                <include>proto-google*</include>
+                <include>guava*</include>
+            </includes>
+        </fileSet>
+        <fileSet>
+            <directory>../gt-immudb/target</directory>
+            <outputDirectory></outputDirectory>
+            <includes>
+                <include>gt-immudb-1.0.jar</include>
+            </includes>
+        </fileSet>
+    </fileSets>
+</assembly>

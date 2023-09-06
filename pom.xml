@@ -3,7 +3,7 @@
    <groupId>org.geotools</groupId>
    <version>1.0</version>
    <artifactId>gt-immudb</artifactId>
-   <packaging>jar</packaging>
+   <packaging>pom</packaging>
    <name>ImmuDB Geotools DataStore</name>
 
    <properties>
@@ -19,7 +19,10 @@
       <pmd.version>6.42.0</pmd.version>
       <checkstyle.skip>false</checkstyle.skip>
    </properties>
-
+   <modules>
+      <module>gt-immudb</module>
+   </modules>
+<dependencyManagement>
    <dependencies>
       <dependency>
          <groupId>org.geotools</groupId>
@@ -85,8 +88,9 @@
          <version>4.13.1</version>
          <scope>test</scope>
       </dependency>
-
    </dependencies>
+</dependencyManagement>
+
 
    <build>
       <plugins>
@@ -97,56 +101,6 @@
                <source>11</source>
                <target>11</target>
             </configuration>
-         </plugin>
-         <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-failsafe-plugin</artifactId>
-            <executions>
-               <execution>
-                  <goals>
-                     <goal>integration-test</goal>
-                     <goal>verify</goal>
-                  </goals>
-               </execution>
-            </executions>
-         </plugin>
-         <plugin>
-            <groupId>io.fabric8</groupId>
-            <artifactId>docker-maven-plugin</artifactId>
-            <version>0.20.1</version>
-            <executions>
-               <execution>
-                  <id>prepare-immudb</id>
-                  <phase>pre-integration-test</phase>
-                  <goals>
-                     <goal>start</goal>
-                  </goals>
-                  <configuration>
-                     <images>
-                        <image>
-                           <name>codenotary/immudb:latest</name>
-                           <alias>immudb</alias>
-                           <run>
-                              <ports>
-                                 <port>3322:3322</port>
-                                 <port>9497:9497</port>
-                              </ports>
-                              <wait>
-                                 <time>5000</time>
-                              </wait>
-                           </run>
-                        </image>
-                     </images>
-                  </configuration>
-               </execution>
-               <execution>
-                  <id>remove-immudb</id>
-                  <phase>post-integration-test</phase>
-                  <goals>
-                     <goal>stop</goal>
-                  </goals>
-               </execution>
-            </executions>
          </plugin>
       </plugins>
    </build>
@@ -175,5 +129,15 @@
          <url>https://repo.osgeo.org/repository/snapshot/</url>
       </repository>
    </repositories>
+
+   <profiles>
+      <profile>
+         <id>release</id>
+         <modules>
+            <module>gt-immudb</module>
+            <module>release</module>
+         </modules>
+      </profile>
+   </profiles>
 
 </project>
