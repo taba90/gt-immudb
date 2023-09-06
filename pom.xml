@@ -2,7 +2,7 @@
    <modelVersion>4.0.0</modelVersion>
    <groupId>org.geotools</groupId>
    <version>1.0</version>
-   <artifactId>gt-immudb</artifactId>
+   <artifactId>geotools-immudb</artifactId>
    <packaging>pom</packaging>
    <name>ImmuDB Geotools DataStore</name>
 
