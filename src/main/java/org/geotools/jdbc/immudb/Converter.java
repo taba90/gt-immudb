@@ -28,30 +28,37 @@ public class Converter {
     private static final WKBWriter WKT_WRITER=new WKBWriter();
 
     public static Geometry toGeometry(byte[] wkt) throws ParseException {
+        if  (wkt==null) return null;
+
         return WKT_READER.read(wkt);
     }
 
     public static byte[] toByteArray(Geometry geometry) throws ParseException {
+        if  (geometry==null) return null;
         return WKT_WRITER.write(geometry);
     }
 
     public static byte[] toByteArray(Double value){
+        if  (value==null) return null;
         byte[] bytes = new byte[8];
         ByteBuffer.wrap(bytes).putDouble(value);
         return bytes;
     }
 
     public static Double toDouble(byte[] dbytes){
+        if  (dbytes==null) return null;
         return ByteBuffer.wrap(dbytes).getDouble();
     }
 
     public static byte[] toByteArray(Float value){
+        if  (value==null) return null;
         byte[] bytes = new byte[4];
         ByteBuffer.wrap(bytes).putFloat(value);
         return bytes;
     }
 
     public static Float toFloat(byte[] dbytes){
+        if  (dbytes==null) return null;
         return ByteBuffer.wrap(dbytes).getFloat();
     }
 
