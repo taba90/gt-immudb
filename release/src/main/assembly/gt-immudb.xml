@@ -9,13 +9,25 @@
             <directory>../gt-immudb/target/dependency</directory>
             <outputDirectory></outputDirectory>
             <includes>
+                <include>animal-sniffer-annotations*</include>
+                <include>annotations*</include>
+                <include>listenablefuture*</include>
+                <include>checker-compat-qual*</include>
+                <include>jsr305*</include>
+                <include>failureaccess*</include>
+                <include>*j2objc*</include>
+                <include>checker-compat-qual*</include>
                 <include>immudb*</include>
                 <include>gt-immudb*</include>
-                <include>*grpc*1.44.1*</include>
-                <include>*netty*4.1.72*</include>
+                <include>*grpc*</include>
+                <include>gson*</include>
+                <include>javax.annotation-api*</include>
+                <include>*netty*</include>
                 <include>protobuf*</include>
                 <include>proto-google*</include>
-                <include>guava*</include>
+                <include>*guava*</include>
+                <include>error_prone_annotations*</include>
+                <include>perfmark-api*</include>
             </includes>
         </fileSet>
         <fileSet>

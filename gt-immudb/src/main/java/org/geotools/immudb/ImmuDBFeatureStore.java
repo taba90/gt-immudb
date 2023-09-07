@@ -135,4 +135,9 @@ public class ImmuDBFeatureStore extends ContentFeatureStore {
     public ImmuDBDataStore getDataStore() {
         return (ImmuDBDataStore) entry.getDataStore();
     }
+
+    @Override
+    protected boolean canFilter() {
+        return delegate.canFilter();
+    }
 }

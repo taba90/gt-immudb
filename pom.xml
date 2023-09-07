@@ -10,7 +10,7 @@
       <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
       <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
       <camel.version>3.20.2</camel.version>
-      <geotools.version>28.1</geotools.version>
+      <geotools.version>28.5</geotools.version>
       <jackson.version>2.15.2</jackson.version>
       <spotless.action>apply</spotless.action>
       <spotless.apply.skip>false</spotless.apply.skip>
