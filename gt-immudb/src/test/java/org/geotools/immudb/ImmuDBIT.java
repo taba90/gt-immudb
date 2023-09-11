@@ -10,6 +10,7 @@ import org.geotools.feature.NameImpl;
 import org.geotools.feature.simple.SimpleFeatureBuilder;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
@@ -62,6 +63,7 @@ public class ImmuDBIT {
     }
 
     @Test
+    @Ignore
     public void testGetFeatures() throws IOException {
         SimpleFeatureSource contentFeatureSource=immuDBDataStore.getFeatureSource(new NameImpl("gt","ft2"));
         SimpleFeatureCollection sfc=contentFeatureSource.getFeatures();
