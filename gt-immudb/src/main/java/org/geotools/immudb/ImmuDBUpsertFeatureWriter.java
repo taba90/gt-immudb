@@ -35,7 +35,7 @@ public class ImmuDBUpsertFeatureWriter extends ImmuDBFeatureReader implements Fe
     public void write() throws IOException {
         String id=last.getID();
         boolean update=id!=null && id.startsWith(simpleFeatureType.getTypeName());
-        SQLValue[] values=Converter.toSQLValues(last,immuDBDataStore.extractPkType(simpleFeatureType),simpleFeatureType.getAttributeDescriptors());
+        SQLValue[] values=Converter.toSQLValues(last,immuDBDataStore.extractPkType(simpleFeatureType),simpleFeatureType.getAttributeDescriptors(),immuDBDataStore.isEncryptFeatureType(simpleFeatureType));
         String sql=featureStore.updateSql(simpleFeatureType,update);
         statement.executeStmt(values);
     }

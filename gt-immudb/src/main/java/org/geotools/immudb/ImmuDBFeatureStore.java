@@ -142,7 +142,6 @@ public class ImmuDBFeatureStore extends ContentFeatureStore {
         sql.append(" VALUES (");
         if  (includeId) sql.append("?,");
         for (int i=0; i<descriptorList.size(); i++){
-            AttributeDescriptor ad=descriptorList.get(i);
             sql.append("?,");
         }
         sql.setLength(sql.length() - 1);

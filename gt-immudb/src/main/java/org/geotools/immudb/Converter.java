@@ -119,7 +119,9 @@ public class Converter {
     static SQLValue getSQLValue(Object value, Class<?> binding) throws IOException {
         SQLValue sqlValue=null;
         try {
-            if (Long.class.isAssignableFrom(getBinding(value,binding))) {
+            if (byte[].class.isAssignableFrom(getBinding(value,binding))){
+                sqlValue = new SQLValue((byte[]) value);
+            }else if (Long.class.isAssignableFrom(getBinding(value,binding))) {
                 sqlValue = new SQLValue((Long) value);
             } else if (Integer.class.isAssignableFrom(getBinding(value,binding))) {
                 sqlValue = new SQLValue((Integer) value);
@@ -203,7 +205,7 @@ public class Converter {
     }
 
 
-    public static SQLValue [] toSQLValues(SimpleFeature simpleFeature,Class<?> pkType, List<AttributeDescriptor> descriptorList) throws IOException {
+    public static SQLValue [] toSQLValues(SimpleFeature simpleFeature,Class<?> pkType, List<AttributeDescriptor> descriptorList, boolean encrypting) throws IOException {
         List<SQLValue> values=new ArrayList<>(descriptorList.size()-1);
         String fid=simpleFeature.getID();
         if (StringUtils.isNotBlank(fid) && fid.startsWith(simpleFeature.getType().getTypeName())){
@@ -213,7 +215,7 @@ public class Converter {
         for (int i=0; i<descriptorList.size(); i++){
             AttributeDescriptor ad=descriptorList.get(i);
             Object value = simpleFeature.getAttribute(ad.getName());
-            values.add(Converter.getSQLValue(value,ad.getType().getBinding()));
+            values.add(Converter.getSQLValue(value,encrypting?byte[].class:ad.getType().getBinding()));
         }
         return values.toArray(new SQLValue[]{});
     }
@@ -222,7 +224,8 @@ public class Converter {
     public static Object toValue(byte[] bytes, Class<?> type){
         Object result=null;
         if  (bytes !=null) {
-            if (Double.class.isAssignableFrom(type)) {
+            if (byte[].class.isAssignableFrom(type)) result=bytes;
+            else if (Double.class.isAssignableFrom(type)) {
                 result=toDouble(bytes);
             } else if (Long.class.isAssignableFrom(type)) {
                 result=toLong(bytes);
@@ -254,7 +257,9 @@ public class Converter {
     public static byte[] toByteArray(Object o, Class<?> type){
         byte[] bytes=null;
         if  (o !=null) {
-            if (Double.class.isAssignableFrom(type)) {
+            if (byte[].class.isAssignableFrom(type)){
+                bytes=(byte[]) o;
+            }else if (Double.class.isAssignableFrom(type)) {
                 bytes=toByteArray((Double) o);
             } else if (Long.class.isAssignableFrom(type)) {
                 bytes=toByteArray((Long) o);

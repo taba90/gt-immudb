@@ -37,12 +37,16 @@ public class ImmuDBStatement {
         }
     }
 
-    public void executeStmt(SQLValue[] params) throws IOException {
+    public void executeStmt(String sql, SQLValue[] params) throws IOException {
         try {
             immuClient.sqlExec(sql,params);
         } catch (SQLException e) {
             throw new IOException(e);
         }
+    }
+
+    public void executeStmt(SQLValue[] params) throws IOException {
+        executeStmt(sql,params);
     }
 
     public ImmuClient getImmuClient() {

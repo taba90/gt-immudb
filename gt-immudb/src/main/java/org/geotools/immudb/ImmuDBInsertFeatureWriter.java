@@ -70,7 +70,7 @@ public class ImmuDBInsertFeatureWriter extends ImmuDBFeatureReader implements Fe
             for (SimpleFeature cur : features) {
                 if (cur!=null) {
                     // the datastore sets as userData, grab it and update the fid
-                    SQLValue[] params = Converter.toSQLValues(cur, pkType, descriptors);
+                    SQLValue[] params = Converter.toSQLValues(cur, pkType, descriptors,immuDBDataStore.isEncryptFeatureType(simpleFeatureType));
                     statement.executeStmt(params);
                     final ContentEntry entry = featureSource.getEntry();
                     final ContentState state = entry.getState(this.tx);
