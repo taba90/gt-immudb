@@ -33,14 +33,17 @@ import java.net.URLDecoder;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import static org.geotools.immudb.GeoJSONToFeatureType.ENCRYPT;
 
 public class ImmuDBDataStore extends ContentDataStore {
     private ImmuDBSessionParams immuDBSessionParams;
     private URI featureTypeUri;
     private Logger LOGGER = Logging.getLogger(ImmuDBDataStore.class);
-    public ImmuDBDataStore(URI featureTypeUri, String ns, String host, Integer port, ImmuDBSessionParams immuDBSessionParams, ImmuStateHolder stateHolder){
+    public ImmuDBDataStore(URI featureTypeUri, String ns, ImmuDBSessionParams immuDBSessionParams){
         this.immuDBSessionParams=immuDBSessionParams;
         setNamespaceURI(ns);
         this.featureTypeUri=featureTypeUri;
@@ -66,7 +69,7 @@ public class ImmuDBDataStore extends ContentDataStore {
 
     @Override
     protected ContentFeatureSource createFeatureSource(ContentEntry entry) throws IOException {
-        return new ImmuDBFeatureStore(featureTypeUri,immuDBSessionParams,entry,Query.ALL);
+        return new ImmuDBFeatureStore(featureTypeUri,entry,Query.ALL);
     }
 
     public ImmuClient open(Transaction transaction) throws IOException {
@@ -390,5 +393,17 @@ public class ImmuDBDataStore extends ContentDataStore {
     @Override
     protected ContentState createContentState(ContentEntry entry) {
         return new ImmuDBState(entry);
+    }
+
+    boolean isEncryptFeatureType(SimpleFeatureType simpleFeatureType){
+        boolean encryptingFeatureType=false;
+            Map<Object, Object> userData = simpleFeatureType.getUserData();
+            if (userData.containsKey(ENCRYPT)) {
+                Boolean encrypt = (Boolean) userData.get(ENCRYPT);
+                if (encrypt != null)
+                    encryptingFeatureType = encrypt.booleanValue();
+            }
+
+        return encryptingFeatureType;
     }
 }

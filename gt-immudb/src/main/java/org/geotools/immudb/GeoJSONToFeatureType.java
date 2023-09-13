@@ -41,6 +41,12 @@ public class GeoJSONToFeatureType {
     private static final String PRIMARY_KEY="primaryKey";
 
     public static final String PK_USER_DATA="PK";
+
+    public static final String ENCRYPT="encrypt";
+
+    public static final String CRS="crs";
+
+    private static final String DEF_CRS="EPSG:4326";
     private static final List<Class<?>> SUPPORTED_TYPES= Arrays.asList(Float.class,Double.class,String.class,Integer.class,Long.class,byte[].class, Boolean.class, Date.class, Point.class,
     LineString.class, Polygon.class, MultiPoint.class, MultiLineString.class, MultiPolygon.class, Geometry.class);
     private String ns;
@@ -52,15 +58,21 @@ public class GeoJSONToFeatureType {
     public SimpleFeatureType readType() throws IOException {
         ObjectMapper objectMapper=new ObjectMapper();
         SimpleFeatureTypeBuilder typeBuilder=new SimpleFeatureTypeBuilder();
-        typeBuilder.setSRS("EPSG:4326");
+        Map<String,Object> userData=new HashMap<>();
         JsonNode jn=objectMapper.readTree(featureTypeUri.toURL());
         if (!jn.has(NAME)) throw new RuntimeException("The JSON type must have a name attribute with the feature type name");
+        String crs;
+        if (jn.has(CRS)) crs= jn.get(CRS).asText();
+        else crs=DEF_CRS;
+        typeBuilder.setSRS(crs);
+        Boolean encrypt=false;
+        if (jn.has(ENCRYPT)) encrypt=jn.get(ENCRYPT).asBoolean();
+        userData.put(ENCRYPT,encrypt);
         if (!jn.has(TYPES)) throw new RuntimeException("The JSON type doesn't have any types definition");
         typeBuilder.setName(new NameImpl(ns,jn.get(NAME).asText()));
         JsonNode arrays=jn.get(TYPES);
         if (!arrays.isArray()) throw new RuntimeException("Types attribute must be an array");
         ArrayNode types=(ArrayNode) arrays;
-        Map<String,Object> userData=new HashMap<>();
         for (int i=0; i<types.size(); i++){
             ObjectNode node=(ObjectNode) types.get(i);
             readAttributeType(node,typeBuilder,userData);

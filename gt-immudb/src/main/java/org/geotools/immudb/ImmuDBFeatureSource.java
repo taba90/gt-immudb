@@ -14,26 +14,31 @@ import org.geotools.filter.FilterAttributeExtractor;
 import org.geotools.filter.visitor.PostPreProcessFilterSplittingVisitor;
 import org.geotools.filter.visitor.SimplifyingFilterVisitor;
 import org.geotools.geometry.jts.ReferencedEnvelope;
+import org.geotools.util.factory.Hints;
 import org.locationtech.jts.geom.Geometry;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
 import org.opengis.filter.Filter;
 
+import javax.swing.text.html.Option;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 import static org.geotools.immudb.Converter.getSQLValue;
+import static org.geotools.immudb.GeoJSONToFeatureType.ENCRYPT;
 
 public class ImmuDBFeatureSource extends ContentFeatureSource {
 
 
-    private URI featureTypeUri;
-    private ImmuDBSessionParams sessionParams;
+    private SimpleFeatureType simpleFeatureType;
+    public static final Hints.OptionKey SECRET_KEY=new Hints.OptionKey("secretKey");
 
+    public static final Hints.OptionKey IV=new Hints.OptionKey("IV");
     /**
      * Creates the new feature source from a query.
      *
@@ -45,10 +50,9 @@ public class ImmuDBFeatureSource extends ContentFeatureSource {
      * @param entry
      * @param query
      */
-    public ImmuDBFeatureSource(URI featureTypeUri, ImmuDBSessionParams sessionParams, ContentEntry entry, Query query) {
+    public ImmuDBFeatureSource(URI featureTypeUri, ContentEntry entry, Query query) throws IOException {
         super(entry, query);
-        this.featureTypeUri=featureTypeUri;
-        this.sessionParams=sessionParams;
+        this.simpleFeatureType=new GeoJSONToFeatureType(featureTypeUri,entry.getName().getNamespaceURI()).readType();
     }
 
     @Override
@@ -69,7 +73,8 @@ public class ImmuDBFeatureSource extends ContentFeatureSource {
 
     @Override
     protected FeatureReader<SimpleFeatureType, SimpleFeature> getReaderInternal(Query query) throws IOException {
-        Filter[] split = splitFilter(query.getFilter());
+        boolean encrypt=((ImmuDBDataStore)getDataStore()).isEncryptFeatureType(getSchema());
+        Filter[] split = splitFilter(query.getFilter(),encrypt);
         Filter preFilter = split[0];
         Filter postFilter = split[1];
         boolean postFilterRequired = postFilter != null && postFilter != Filter.INCLUDE;
@@ -95,7 +100,9 @@ public class ImmuDBFeatureSource extends ContentFeatureSource {
         try {
             String sql = immuDBDataStore.selectSQL(querySchema, immuDBFilterToSQL, preQuery);
             SQLValue[] params = getParams(immuDBFilterToSQL);
-            reader=new ImmuDBFeatureReader((ImmuDBDataStore) getDataStore(),getState(),querySchema,sql,params);
+            Object secKey=query.getHints().get(SECRET_KEY);
+            Object iv=query.getHints().get(IV);
+            reader=encrypt?new DecryptingImmuDBFeatureReader((ImmuDBDataStore) getDataStore(),getState(),querySchema,sql,params,secKey==null?null: secKey.toString(),iv==null?null:iv.toString()):new ImmuDBFeatureReader((ImmuDBDataStore) getDataStore(),getState(),querySchema,sql,params);
             // if post filter, wrap it
             if (postFilterRequired) {
                 reader = new FilteringFeatureReader<>(reader, postFilter);
@@ -125,14 +132,17 @@ public class ImmuDBFeatureSource extends ContentFeatureSource {
 
     }
 
-    protected Filter[] splitFilter(Filter original) {
-        return splitFilter(original, this);
+    protected Filter[] splitFilter(Filter original,boolean encrypted) {
+        return splitFilter(original, this,encrypted);
     }
 
-    Filter[] splitFilter(Filter original, SimpleFeatureSource source) {
+    Filter[] splitFilter(Filter original, SimpleFeatureSource source,boolean encrypt) {
 
         Filter[] split = new Filter[2];
-        if (original != null) {
+        if (encrypt){
+            split[0] = Filter.INCLUDE;
+            split[1] = original;
+        }else if (original != null) {
             PostPreProcessFilterSplittingVisitor splitter =
                     new ImmuDBPostPreProcessFilterSplittingVisitor(ImmuDBFilterToSQL.createCapabilities(), source.getSchema(), null);
             original.accept(splitter, null);
@@ -186,7 +196,7 @@ public class ImmuDBFeatureSource extends ContentFeatureSource {
 
     @Override
     protected SimpleFeatureType buildFeatureType() throws IOException {
-        return new GeoJSONToFeatureType(featureTypeUri,entry.getName().getNamespaceURI()).readType();
+        return simpleFeatureType;
     }
 
     protected SQLValue[] getParams(ImmuDBFilterToSQL toSQL) throws IOException {

@@ -1,5 +1,7 @@
 {
   "name": "ft2",
+  "encrypt": true,
+  "crs": "EPSG:4326",
   "types": [
     {
       "attribute": "id",

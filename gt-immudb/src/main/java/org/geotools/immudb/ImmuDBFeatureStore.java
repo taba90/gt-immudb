@@ -7,15 +7,18 @@ import org.geotools.data.FilteringFeatureWriter;
 import org.geotools.data.Query;
 import org.geotools.data.store.ContentEntry;
 import org.geotools.data.store.ContentFeatureStore;
+import org.geotools.feature.FeatureCollection;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
 import org.opengis.feature.type.AttributeDescriptor;
 import org.opengis.filter.Filter;
+import org.opengis.filter.identity.FeatureId;
 
 import java.io.IOException;
 import java.io.StringWriter;
 import java.net.URI;
+import java.util.Collection;
 import java.util.List;
 
 public class ImmuDBFeatureStore extends ContentFeatureStore {
@@ -23,16 +26,32 @@ public class ImmuDBFeatureStore extends ContentFeatureStore {
     private ImmuDBFeatureSource delegate;
 
 
-    public ImmuDBFeatureStore(URI featureTypeUri, ImmuDBSessionParams sessionParams, ContentEntry entry, Query query) {
+    public ImmuDBFeatureStore(URI featureTypeUri, ContentEntry entry, Query query) {
 
         super(entry, query);
-        this.delegate=new ImmuDBFeatureSource(featureTypeUri,sessionParams,entry,query);
+        try {
+            this.delegate=new ImmuDBFeatureSource(featureTypeUri,entry,query);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+
+    @Override
+    public List<FeatureId> addFeatures(Collection collection) throws IOException {
+        return super.addFeatures(collection);
+    }
+
+    @Override
+    public List<FeatureId> addFeatures(FeatureCollection<SimpleFeatureType, SimpleFeature> featureCollection) throws IOException {
+        return super.addFeatures(featureCollection);
     }
 
     @Override
     protected FeatureWriter<SimpleFeatureType, SimpleFeature> getWriterInternal(Query query, int flags) throws IOException {
         FeatureWriter<SimpleFeatureType,SimpleFeature> writer=null;
         SimpleFeatureType schema= getSchema();
+        boolean encrypt=((ImmuDBDataStore)getDataStore()).isEncryptFeatureType(getSchema());
         try {
             if ((flags | WRITER_ADD) == WRITER_ADD) {
                 Query queryNone = new Query(query);
@@ -40,7 +59,7 @@ public class ImmuDBFeatureStore extends ContentFeatureStore {
                 String sql = insertSQL();
                 writer = new ImmuDBInsertFeatureWriter(this, getDataStore(), getState(), schema, sql);
             } else {
-                Filter[] split = delegate.splitFilter(query.getFilter());
+                Filter[] split = delegate.splitFilter(query.getFilter(),encrypt);
                 Filter preFilter = split[0];
                 Filter postFilter = split[1];
                 boolean postFilterRequired = postFilter != null && postFilter != Filter.INCLUDE;
@@ -140,4 +159,6 @@ public class ImmuDBFeatureStore extends ContentFeatureStore {
     protected boolean canFilter() {
         return delegate.canFilter();
     }
+
+
 }

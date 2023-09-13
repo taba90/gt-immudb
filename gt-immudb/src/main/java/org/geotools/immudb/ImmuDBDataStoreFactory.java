@@ -95,7 +95,7 @@ public class ImmuDBDataStoreFactory implements DataStoreFactorySpi {
         String ns=(String)  NAMESPACE.lookUp(params);
         try {
             ImmuDBSessionParams immuDBSessionParams=new ImmuDBSessionParams(host,port,stateFolder,db,username,pwd);
-            return new ImmuDBDataStore(new URI(jsonSchema),ns,host,port,immuDBSessionParams,state);
+            return new ImmuDBDataStore(new URI(jsonSchema),ns,immuDBSessionParams);
         } catch (URISyntaxException e) {
             throw new IOException(e);
         }
