@@ -76,7 +76,6 @@ public class ImmuDBDataStore extends ContentDataStore {
         ImmuClient immuClient=ImmuClient.newBuilder()
                 .withServerUrl(immuDBSessionParams.getHost())
                 .withServerPort(immuDBSessionParams.getPort())
-                .withStateHolder(FileImmuStateHolder.newBuilder().withStatesFolder(immuDBSessionParams.getStateHolder()).build())
                 .build();
         ImmuDBTransactionState state=new ImmuDBTransactionState(immuClient,immuDBSessionParams,transaction);
         if (!transaction.equals(Transaction.AUTO_COMMIT)) transaction.putState(this,state);
@@ -380,7 +379,8 @@ public class ImmuDBDataStore extends ContentDataStore {
         StringBuilder stmt=new StringBuilder("CREATE TABLE ");
         PrimaryKey key=(PrimaryKey) featureType.getUserData().get(GeoJSONToFeatureType.PK_USER_DATA);
         String pk=key.getColumns().get(0).getName();
-        String immuType=Converter.getSQLType(key.getColumns().get(0).getType());
+        boolean encrypt=isEncryptFeatureType(featureType);
+        String immuType=encrypt?"BLOB":Converter.getSQLType(key.getColumns().get(0).getType());
         stmt.append(tname).append(" (").append(pk)
                 .append(" ").append(immuType).append(" ").append("AUTO_INCREMENT,");
         for (AttributeDescriptor desc:featureType.getAttributeDescriptors()){

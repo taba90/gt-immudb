@@ -23,7 +23,8 @@ public class AESManager {
 
     public AESManager(String base64Key, String ivParameterSpec){
         byte[] decodedKey = Base64.getDecoder().decode(base64Key);
-        this.ivParameterSpec=new IvParameterSpec(ivParameterSpec.getBytes());
+        byte[] decodedIv=Base64.getDecoder().decode(ivParameterSpec);
+        this.ivParameterSpec=new IvParameterSpec(decodedIv);
         this.secretKey= new SecretKeySpec(decodedKey, 0, decodedKey.length, AES);
     }
 

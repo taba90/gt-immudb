@@ -3,6 +3,7 @@ package org.geotools.immudb;
 import io.codenotary.immudb4j.sql.SQLQueryResult;
 import io.codenotary.immudb4j.sql.SQLValue;
 import org.apache.commons.lang3.StringUtils;
+import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
 import org.geotools.geometry.jts.WKBReader;
 import org.geotools.util.Converters;
 import org.geotools.util.DateTimeParser;
@@ -10,7 +11,9 @@ import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKBWriter;
 import org.opengis.feature.simple.SimpleFeature;
+import org.opengis.feature.simple.SimpleFeatureType;
 import org.opengis.feature.type.AttributeDescriptor;
+import org.opengis.feature.type.GeometryDescriptor;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -120,7 +123,9 @@ public class Converter {
         SQLValue sqlValue=null;
         try {
             if (byte[].class.isAssignableFrom(getBinding(value,binding))){
-                sqlValue = new SQLValue((byte[]) value);
+                byte[] bytes=(byte[]) value;
+                if (bytes==null) bytes=new byte[0];
+                sqlValue = new SQLValue(bytes);
             }else if (Long.class.isAssignableFrom(getBinding(value,binding))) {
                 sqlValue = new SQLValue((Long) value);
             } else if (Integer.class.isAssignableFrom(getBinding(value,binding))) {
@@ -282,5 +287,25 @@ public class Converter {
             }
         }
         return bytes;
+    }
+
+
+    public static SimpleFeatureType toByteArrayType(SimpleFeatureType schema){
+        SimpleFeatureTypeBuilder typeBuilder=new SimpleFeatureTypeBuilder();
+        List<AttributeDescriptor> descriptors=schema.getAttributeDescriptors();
+        for (AttributeDescriptor ad:descriptors){
+            if (ad instanceof GeometryDescriptor){
+                typeBuilder.add(schema.getGeometryDescriptor().getLocalName(),byte[].class);
+            } else {
+                typeBuilder.add(ad.getLocalName(), byte[].class);
+            }
+        }
+        typeBuilder.setCRS(schema.getCoordinateReferenceSystem());
+        typeBuilder.srs("EPSG:4326");
+        typeBuilder.setName(schema.getName());
+        typeBuilder.setNamespaceURI(schema.getName().getNamespaceURI());
+        SimpleFeatureType byteSchema=typeBuilder.buildFeatureType();
+        byteSchema.getUserData().putAll(schema.getUserData());
+        return byteSchema;
     }
 }

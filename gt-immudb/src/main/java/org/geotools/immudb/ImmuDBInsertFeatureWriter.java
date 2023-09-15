@@ -21,13 +21,20 @@ public class ImmuDBInsertFeatureWriter extends ImmuDBFeatureReader implements Fe
 
     private int curBufferPos = 0;
 
+    private SimpleFeatureType byteArrayType;
+
+    private boolean isEncrypting;
+
     ContentFeatureSource featureSource;
 
     public ImmuDBInsertFeatureWriter(ContentFeatureSource featureSource,ImmuDBDataStore dataStore, ContentState state, SimpleFeatureType simpleFeatureType,String sql) throws IOException {
         super(dataStore,state, simpleFeatureType, sql,null);
         buffer = new SimpleFeature[500];
-       this.featureSource=featureSource;
-       this.immuDBDataStore=dataStore;
+        this.isEncrypting=immuDBDataStore.isEncryptFeatureType(simpleFeatureType);
+        if (isEncrypting)
+            this.byteArrayType=Converter.toByteArrayType(simpleFeatureType);
+        this.featureSource=featureSource;
+        this.immuDBDataStore=dataStore;
     }
 
     @Override
@@ -37,7 +44,7 @@ public class ImmuDBInsertFeatureWriter extends ImmuDBFeatureReader implements Fe
 
     @Override
     public SimpleFeature next() throws IOException {
-        SimpleFeatureBuilder builder=new SimpleFeatureBuilder(getFeatureType());
+        SimpleFeatureBuilder builder=new SimpleFeatureBuilder(isEncrypting?byteArrayType:getFeatureType());
         SimpleFeature f= builder.buildFeature(null);
         buffer[curBufferPos]=f;
         curBufferPos++;
