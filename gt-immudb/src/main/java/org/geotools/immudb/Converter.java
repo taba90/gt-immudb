@@ -141,6 +141,8 @@ public class Converter {
             result="BLOB";
         } else if (String.class.isAssignableFrom(clazz)){
             result="VARCHAR";
+        } else if (Date.class.isAssignableFrom(clazz)){
+           result="TIMESTAMP";
         } else {
             throw new UnsupportedOperationException(String.format("Type not supported %s", clazz.getSimpleName()));
         }
