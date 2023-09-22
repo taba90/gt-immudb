@@ -67,19 +67,24 @@ public class Converter {
             if (Long.class.isAssignableFrom(getBinding(value,binding))) {
                 sqlValue = new SQLValue((Long) value);
             } else if (Integer.class.isAssignableFrom(getBinding(value,binding))) {
+                if (value==null) value=0;
                 sqlValue = new SQLValue((Integer) value);
             } else if (Boolean.class.isAssignableFrom(getBinding(value,binding))) {
+                if (value==null) value=false;
                 sqlValue = new SQLValue((Boolean) value);
             } else if (Date.class.isAssignableFrom(getBinding(value,binding))) {
                 sqlValue = new SQLValue((Date) value);
             } else if (String.class.isAssignableFrom(getBinding(value,binding))) {
+                if (value==null) value="";
                 sqlValue = new SQLValue((String) value);
             } else {
                 if (Geometry.class.isAssignableFrom(getBinding(value,binding))) {
                     sqlValue = new SQLValue(Converter.toByteArray((Geometry) value));
                 } else if (Double.class.isAssignableFrom(getBinding(value,binding))) {
+                    if (value==null) value=0d;
                     sqlValue = new SQLValue(Converter.toByteArray((Double) value));
                 } else if (Float.class.isAssignableFrom(getBinding(value,binding))) {
+                    if (value==null) value=0f;
                     sqlValue = new SQLValue(Converter.toByteArray((Float) value));
                 } else {
                     throw new UnsupportedOperationException();
